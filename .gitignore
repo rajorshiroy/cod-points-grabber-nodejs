@@ -116,3 +116,4 @@ dist
 #custom
 .idea/
 config.js
+test.js

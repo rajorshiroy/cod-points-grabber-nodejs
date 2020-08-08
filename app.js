@@ -13,10 +13,10 @@ const getYoutubeLiveComments = async () => {
     const blizzardCookies = await getBlizzardCookies(browser);
 
     const page = await browser.newPage();
-    await page.goto(liveVideoUrl);
     await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) ' +
         'AppleWebKit/537.36 (KHTML, like Gecko) ' +
         'Chrome/64.0.3282.39 Safari/537.36');
+    await page.goto(liveVideoUrl);
 
     // switch to the chat iframe
     await page.waitFor('iframe#chatframe')
@@ -32,7 +32,7 @@ const getYoutubeLiveComments = async () => {
                 message => message.innerText.trim()
             )
         });
-        console.log(messages)
+        // console.log(messages)
         for (const message of messages) {
             let codeMatches = message.match(/(\w{2,10}-){3,10}(\w{2,10})/mg);
             if (codeMatches !== null) {
@@ -43,7 +43,7 @@ const getYoutubeLiveComments = async () => {
                 await redeemCode(blizzardCookies, code);
             }
         }
-        console.log(messages.length, 'messages found')
+        console.log(`${messages.length} messages found`)
     }, 200);
 };
 
@@ -58,15 +58,34 @@ const getBlizzardCookies = async (browser) => {
         'Chrome/64.0.3282.39 Safari/537.36');
     await page.goto(loginUrl);
 
+    // console.log('inserting email');
     await page.type('#accountName', email, {delay: 50});
+
+    // console.log('inserting password');
     await page.type('#password', password, {delay: 50});
+
+    // console.log('submitting');
     await page.evaluate(() => {
         document.querySelector('#submit').click();
-    })
+    });
 
-    // wait for next page to load
-    await page.waitFor('#enter-code-input')
-    console.log('logged in!')
+    try {
+        // wait for next page to load
+        await page.waitFor('#enter-code-input', {timeout: 5000})
+        console.log('logged in!')
+    } catch (e) {
+        console.log('security code required. a code should be sent to your registered email.')
+        const securityCode = prompt('Security code: ').trim();
+
+        // enter the security code and continue
+        await page.type('#email', securityCode, {delay: 50})
+        await page.evaluate(() => {
+            document.querySelector('#challenge-submit').click();
+        })
+        await page.waitFor('#enter-code-input', {timeout: 5000})
+        console.log('logged in!')
+    }
+
 
     // return the cookies
     const cookies = (await page.cookies()).map(ck => `${ck["name"]}=${ck["value"]}`)
@@ -101,4 +120,4 @@ const redeemCode = async (cookie, code) => {
     console.log('code redeemed!');
 }
 
-getYoutubeLiveComments();
+getYoutubeLiveComments().then(r => null);
