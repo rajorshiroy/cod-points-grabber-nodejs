@@ -43,7 +43,7 @@ const getYoutubeLiveComments = async () => {
                 await redeemCode(blizzardCookies, code);
             }
         }
-        console.log(`${messages.length} messages found`)
+        console.log(`${messages.length} messages found on live feed`)
     }, 200);
 };
 
