@@ -2,12 +2,10 @@ const puppeteer = require('puppeteer');
 const prompt = require('prompt-sync')({sigint: true});
 const {blizzardEmail, blizzardPassword} = require('./config');
 
-const getYoutubeLiveComments = async () => {
-    // const liveVideoUrl = 'https://www.youtube.com/watch?v=L8Djcwyvb_w';
-    const liveVideoUrl = prompt('Live video url: ').trim();
+const getYoutubeLiveComments = async (liveVideoUrl, isDebugMode) => {
+    console.log('youtube live url detected');
 
-
-    const browser = await puppeteer.launch({headless: true, defaultViewport: null});
+    const browser = await puppeteer.launch({headless: !isDebugMode, defaultViewport: null});
 
     // get cookies from blizzard battle.net
     const blizzardCookies = await getBlizzardCookies(browser);
@@ -29,22 +27,82 @@ const getYoutubeLiveComments = async () => {
 
         let messages = await chatFrame.evaluate(() => {
             return Array.from(document.querySelectorAll('span#message')).map(
-                message => message.innerText.trim()
+                message => {
+                    const text = message.innerText.trim();
+                    if (text !== '')
+                        return text;
+                }
             )
         });
-        // console.log(messages)
+
+        if (isDebugMode)
+            console.log('-------------------------------------------');
+
         for (const message of messages) {
-            let codeMatches = message.match(/(\w{2,10}-){3,10}(\w{2,10})/mg);
-            if (codeMatches !== null) {
-                const code = codeMatches[0];
-                console.log('======================== code found ========================');
-                console.log(code);
-                console.log('============================================================');
-                await redeemCode(blizzardCookies, code);
+            if (message) {
+                let codeMatches = message.match(/(\w{2,10}-){3,10}(\w{2,10})/mg);
+                if (codeMatches !== null) {
+                    const code = codeMatches[0];
+                    console.log('======================== code found ========================');
+                    console.log(code);
+                    console.log('============================================================');
+                    await redeemCode(blizzardCookies, code);
+                } else if (isDebugMode)
+                    console.log(message);
             }
         }
         console.log(`${messages.length} messages found on live feed`)
     }, 200);
+};
+
+const getTwitchComments = async (liveVideoUrl, isDebugMode) => {
+    console.log('twitch url detected');
+    const browser = await puppeteer.launch({headless: false, defaultViewport: null});
+
+    // get cookies from blizzard battle.net
+    const blizzardCookies = await getBlizzardCookies(browser);
+
+    const page = await browser.newPage();
+    await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) ' +
+        'AppleWebKit/537.36 (KHTML, like Gecko) ' +
+        'Chrome/64.0.3282.39 Safari/537.36');
+    await page.goto(liveVideoUrl);
+
+    // switch to the chat fragment to load
+    await page.waitFor('.text-fragment')
+    console.log('chat has been loaded. getting messages...');
+
+    // keep refreshing the messages
+    setInterval(async () => {
+
+        let messages = await page.evaluate(() => {
+            return Array.from(document.querySelectorAll('.text-fragment')).map(
+                message => {
+                    const text = message.innerText.trim();
+                    if (text !== '')
+                        return text;
+                }
+            )
+        });
+
+        if (isDebugMode)
+            console.log('-------------------------------------------');
+
+        for (const message of messages) {
+            if (message) {
+                let codeMatches = message.match(/(\w{2,10}-){3,10}(\w{2,10})/mg);
+                if (codeMatches !== null) {
+                    const code = codeMatches[0];
+                    console.log('======================== code found ========================');
+                    console.log(code);
+                    console.log('============================================================');
+                    await redeemCode(blizzardCookies, code);
+                } else if (isDebugMode)
+                    console.log(message);
+            }
+        }
+        console.log(`${messages.length} messages found on live feed`)
+    }, 100);
 };
 
 const getBlizzardCookies = async (browser) => {
@@ -71,7 +129,7 @@ const getBlizzardCookies = async (browser) => {
 
     try {
         // wait for next page to load
-        await page.waitFor('#enter-code-input', {timeout: 5000})
+        await page.waitFor('#enter-code-input', {timeout: 8000})
         console.log('logged in!')
     } catch (e) {
         console.log('security code required. a code should be sent to your registered email.')
@@ -120,4 +178,18 @@ const redeemCode = async (cookie, code) => {
     console.log('code redeemed!');
 }
 
-getYoutubeLiveComments().then(r => null);
+const main = () => {
+    const isDebugMode = process.argv.includes('debug');
+
+    console.log('enter a twitch or youtube live stream url');
+    const liveVideoUrl = prompt('Live video url: ').trim();
+    if (liveVideoUrl.includes('youtube'))
+        getYoutubeLiveComments(liveVideoUrl, isDebugMode).then(r => null);
+    else if (liveVideoUrl.includes('twitch'))
+        getTwitchComments(liveVideoUrl, isDebugMode).then(r => null);
+    else
+        console.log('invalid url');
+}
+
+
+main();
