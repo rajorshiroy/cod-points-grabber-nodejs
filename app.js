@@ -63,7 +63,7 @@ const getYoutubeLiveComments = async (liveVideoUrl, isDebugMode) => {
                     console.log(message);
             }
         }
-        console.log(`${messages.length} messages found on live feed`)
+        console.log(`${Date.now()}| ${messages.length} messages found on live feed`)
     }, 200);
 };
 
