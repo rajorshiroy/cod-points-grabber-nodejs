@@ -1,3 +1,4 @@
+const fs = require('fs')
 const puppeteer = require('puppeteer');
 const prompt = require('prompt-sync')({sigint: true});
 const {blizzardEmail, blizzardPassword} = require('./config');
@@ -42,11 +43,22 @@ const getYoutubeLiveComments = async (liveVideoUrl, isDebugMode) => {
             if (message) {
                 let codeMatches = message.match(/(\w{2,10}-){3,10}(\w{2,10})/mg);
                 if (codeMatches !== null) {
-                    const code = codeMatches[0];
-                    console.log('======================== code found ========================');
-                    console.log(code);
-                    console.log('============================================================');
-                    await redeemCode(blizzardCookies, code);
+                    try {
+                        const code = codeMatches[0];
+
+                        // save code to txt file
+                        fs.appendFile('codes.txt', code + '\n', (err) => {
+                            if (err) console.log(err);
+                            console.log('Saved!');
+                        });
+
+                        console.log('======================== code found ========================');
+                        console.log(code);
+                        console.log('============================================================');
+                        await redeemCode(blizzardCookies, code);
+                    } catch (e) {
+                        console.log(e);
+                    }
                 } else if (isDebugMode)
                     console.log(message);
             }
